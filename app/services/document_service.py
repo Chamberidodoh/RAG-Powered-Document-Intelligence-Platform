@@ -2,17 +2,15 @@ from __future__ import annotations
 
 import json
 import logging
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
 from app.core.config import settings
 from app.core.exceptions import DocumentNotFoundError, DocumentProcessingError
-from app.models.document import DocumentMetadata
-from app.services.embedding_service import EmbeddingService
 from app.services.ingestion_service import IngestionService
 from app.services.vector_store_service import VectorStoreService
-from app.utils.file_utils import get_file_extension, get_file_size_bytes
-from app.utils.id_utils import generate_document_id
+from app.utils.file_utils import get_file_extension
 
 logger = logging.getLogger(__name__)
 
@@ -43,7 +41,7 @@ class DocumentService:
             "filename": result["filename"],
             "file_type": get_file_extension(result["filename"]).lstrip("."),
             "file_size_bytes": result["file_size_bytes"],
-            "uploaded_at": __import__("datetime").datetime.utcnow().isoformat(),
+            "uploaded_at": datetime.now(timezone.utc).isoformat(),
             "chunk_count": result["chunk_count"],
             "status": "processed",
             "storage_path": result["file_path"],

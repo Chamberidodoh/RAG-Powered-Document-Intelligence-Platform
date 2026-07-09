@@ -1,11 +1,25 @@
-from pathlib import Path
+from __future__ import annotations
 
-try:
-    from PyPDF2 import PdfReader
-except ImportError:  # pragma: no cover - compatibility for pypdf
-    from pypdf import PdfReader
+import importlib
+from pathlib import Path
+from typing import Any
 
 from app.loaders.base import BaseDocumentLoader
+
+
+def _get_pdf_reader() -> Any:
+    for module_name in ("pypdf", "PyPDF2"):
+        try:
+            module = importlib.import_module(module_name)
+        except ImportError:
+            continue
+        reader = getattr(module, "PdfReader", None)
+        if reader is not None:
+            return reader
+    raise ImportError("No PDF reader package is available. Install pypdf or PyPDF2.")
+
+
+PdfReader = _get_pdf_reader()
 
 
 class PdfLoader(BaseDocumentLoader):

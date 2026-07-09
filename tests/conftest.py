@@ -1,5 +1,9 @@
 import os
-from pathlib import Path
+import warnings
+
+warnings.filterwarnings("ignore", category=DeprecationWarning)
+warnings.filterwarnings("ignore", message="Using `httpx` with `starlette.testclient` is deprecated")
+warnings.filterwarnings("ignore", message="'asyncio.iscoroutinefunction' is deprecated")
 
 import pytest
 from fastapi.testclient import TestClient
