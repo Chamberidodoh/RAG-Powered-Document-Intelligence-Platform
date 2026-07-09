@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-import json
-from pathlib import Path
 from typing import Any
 
 import chromadb
@@ -28,11 +26,37 @@ class VectorStoreService:
         if not documents:
             return
         try:
+            normalized_documents = []
+            for item in documents:
+                metadata = item["metadata"]
+                page_number = metadata.get("page_number")
+                if page_number is None:
+                    page_number = 0
+                elif not isinstance(page_number, (int, float)):
+                    page_number = 0
+
+                chunk_index = metadata.get("chunk_index", 0)
+                if not isinstance(chunk_index, int):
+                    chunk_index = 0
+
+                normalized_metadata = {
+                    "document_id": str(metadata.get("document_id", "")),
+                    "filename": str(metadata.get("filename", "")),
+                    "file_type": str(metadata.get("file_type", "")),
+                    "page_number": int(page_number),
+                    "chunk_index": chunk_index,
+                }
+                normalized_documents.append({
+                    "id": str(item["id"]),
+                    "content": str(item["content"]),
+                    "metadata": normalized_metadata,
+                    "embedding": item.get("embedding"),
+                })
             self.collection.add(
-                documents=[item["content"] for item in documents],
-                metadatas=[item["metadata"] for item in documents],
-                ids=[item["id"] for item in documents],
-                embeddings=[item.get("embedding") for item in documents],
+                documents=[item["content"] for item in normalized_documents],
+                metadatas=[item["metadata"] for item in normalized_documents],
+                ids=[item["id"] for item in normalized_documents],
+                embeddings=[item.get("embedding") for item in normalized_documents],
             )
         except Exception as exc:  # pragma: no cover - defensive
             raise VectorDatabaseError("Failed to store documents in vector database") from exc
@@ -51,19 +75,25 @@ class VectorStoreService:
                 n_results=top_k,
                 where=where,
             )
+            if not result:
+                return []
+
+            ids = (result.get("ids") or [[]])[0] if result.get("ids") else []
+            documents = (result.get("documents") or [[]])[0] if result.get("documents") else []
+            metadatas = (result.get("metadatas") or [[]])[0] if result.get("metadatas") else []
+            distances = (result.get("distances") or [[]])[0] if result.get("distances") else []
+
+            if not ids:
+                return []
+
             return [
                 {
-                    "id": ids,
+                    "id": id_value,
                     "content": content,
                     "metadata": metadata,
                     "distance": distance,
                 }
-                for ids, content, metadata, distance in zip(
-                    result.get("ids", [[]])[0],
-                    result.get("documents", [[]])[0],
-                    result.get("metadatas", [[]])[0],
-                    result.get("distances", [[]])[0],
-                )
+                for id_value, content, metadata, distance in zip(ids, documents, metadatas, distances)
             ]
         except Exception as exc:  # pragma: no cover - defensive
             raise VectorDatabaseError("Failed to query vector database") from exc

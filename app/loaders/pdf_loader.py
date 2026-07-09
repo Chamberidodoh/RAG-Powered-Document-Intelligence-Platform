@@ -1,6 +1,9 @@
 from pathlib import Path
 
-from PyPDF2 import PdfReader
+try:
+    from PyPDF2 import PdfReader
+except ImportError:  # pragma: no cover - compatibility for pypdf
+    from pypdf import PdfReader
 
 from app.loaders.base import BaseDocumentLoader
 

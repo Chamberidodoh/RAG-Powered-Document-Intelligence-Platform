@@ -8,7 +8,6 @@ from openai import OpenAI
 
 from app.core.config import settings
 from app.core.exceptions import InvalidQuestionError, OpenAIAPIError
-from app.models.chat import ChatMessage
 from app.services.retrieval_service import RetrievalService
 from app.utils.id_utils import generate_session_id
 
@@ -18,7 +17,7 @@ logger = logging.getLogger(__name__)
 class ChatService:
     def __init__(self, retrieval_service: RetrievalService | None = None, client: OpenAI | None = None) -> None:
         self.retrieval_service = retrieval_service or RetrievalService()
-        self.client = client or OpenAI(api_key=settings.openai_api_key)
+        self.client = client
 
     def ask_question(self, question: str, session_id: str | None = None, document_ids: list[str] | None = None, top_k: int | None = None) -> dict[str, Any]:
         if not question.strip():
@@ -41,16 +40,21 @@ class ChatService:
             f"Question:\n{question}"
         )
         generation_start = time.perf_counter()
-        try:
-            completion = self.client.responses.create(
-                model=settings.openai_chat_model,
-                input=prompt,
-                temperature=settings.openai_temperature,
-            )
-            answer = completion.output_text
-        except Exception as exc:  # pragma: no cover - defensive
-            raise OpenAIAPIError("Failed to generate a response") from exc
-        generation_elapsed_ms = int((time.perf_counter() - generation_start) * 1000)
+        if not settings.openai_api_key:
+            answer = f"Local fallback response: {question}"
+            generation_elapsed_ms = int((time.perf_counter() - generation_start) * 1000)
+        else:
+            try:
+                client = self.client or OpenAI(api_key=settings.openai_api_key)
+                completion = client.responses.create(
+                    model=settings.openai_chat_model,
+                    input=prompt,
+                    temperature=settings.openai_temperature,
+                )
+                answer = completion.output_text
+            except Exception as exc:  # pragma: no cover - defensive
+                raise OpenAIAPIError("Failed to generate a response") from exc
+            generation_elapsed_ms = int((time.perf_counter() - generation_start) * 1000)
         sources = [
             {
                 "filename": item.get("metadata", {}).get("filename"),
